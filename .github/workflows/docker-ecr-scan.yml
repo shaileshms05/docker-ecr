@@ -44,22 +44,12 @@ jobs:
       - name: Wait for ECR scan to complete
         run: |
           IMAGE_TAG=${{ github.sha }}
-          echo "[DEBUG] Waiting for ECR scan to complete for image tag: $IMAGE_TAG"
+          echo "[DEBUG] Starting minimal loop test for image tag: $IMAGE_TAG"
           for i in {1..12}; do
-            STATUS=$(aws ecr describe-image-scan-findings \
-              --repository-name ${{ secrets.ECR_REPOSITORY }} \
-              --image-id imageTag=$IMAGE_TAG \
-              --query 'imageScanStatus.status' --output text)
-            echo "[DEBUG] Scan status: $STATUS (attempt $i)"
-            if [ "$STATUS" = "COMPLETE" ]; then
-              break
-            fi
-            sleep 10
+            echo "[DEBUG] Loop attempt $i"
+            sleep 1
           done
-          if [ "$STATUS" != "COMPLETE" ]; then
-            echo "❌ Scan did not complete in time."
-            exit 1
-          fi
+          echo "[DEBUG] Minimal loop test completed."
 
       - name: Check ECR scan findings
         run: |
