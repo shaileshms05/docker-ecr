@@ -49,20 +49,30 @@ jobs:
           IMAGE_TAG=${{ github.sha }}
           echo "Checking scan findings for image tag: $IMAGE_TAG"
           
-          # Get and display all findings
+          # Get full scan results
+          echo "=== Vulnerability Scan Results ==="
           aws ecr describe-image-scan-findings \
             --repository-name ${{ secrets.ECR_REPOSITORY }} \
             --image-id imageTag=$IMAGE_TAG \
-            --query 'imageScanFindings.findings[?severity==`HIGH` || severity==`CRITICAL`]' \
-            --output table
+            --query 'imageScanFindings.findings[?severity==`HIGH` || severity==`CRITICAL`].[severity,name,description]' \
+            --output text || true
           
-          # Check if there are any HIGH/CRITICAL findings
-          FINDINGS=$(aws ecr describe-image-scan-findings \
+          # Count vulnerabilities by severity
+          HIGH_COUNT=$(aws ecr describe-image-scan-findings \
             --repository-name ${{ secrets.ECR_REPOSITORY }} \
             --image-id imageTag=$IMAGE_TAG \
-            --query 'imageScanFindings.findings[?severity==`HIGH` || severity==`CRITICAL`]' --output json)
+            --query 'length(imageScanFindings.findings[?severity==`HIGH`])' \
+            --output text)
           
-          if [ "$FINDINGS" != "[]" ]; then
+          CRITICAL_COUNT=$(aws ecr describe-image-scan-findings \
+            --repository-name ${{ secrets.ECR_REPOSITORY }} \
+            --image-id imageTag=$IMAGE_TAG \
+            --query 'length(imageScanFindings.findings[?severity==`CRITICAL`])' \
+            --output text)
+          
+          echo "Found: $HIGH_COUNT HIGH and $CRITICAL_COUNT CRITICAL vulnerabilities"
+          
+          if [ "$HIGH_COUNT" -gt 0 ] || [ "$CRITICAL_COUNT" -gt 0 ]; then
             echo "❌ High or Critical vulnerabilities found!"
             exit 1
           fi
