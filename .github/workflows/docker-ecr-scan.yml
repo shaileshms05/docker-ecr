@@ -46,9 +46,33 @@ jobs:
 
       - name: Check ECR scan findings
         run: |
-          echo "This is a minimal test step after ECR push."
-          echo "If you see this message and no 'NoneType' error, the problem is in the scan findings logic."
-          echo "If you still see the 'NoneType' error, the problem is with the workflow context or runner."
+          IMAGE_TAG=${{ github.sha }}
+          echo "[DEBUG] Checking scan findings for image tag: $IMAGE_TAG"
+          echo "[DEBUG] Running describe-image-scan-findings..."
+          RAW_OUTPUT=$(aws ecr describe-image-scan-findings \
+            --repository-name ${{ secrets.ECR_REPOSITORY }} \
+            --image-id imageTag=$IMAGE_TAG \
+            --output json 2>&1) || true
+          echo "[DEBUG] Raw AWS CLI output:"
+          echo "$RAW_OUTPUT"
+          
+          # Try to extract findings (if possible)
+          HIGH_COUNT=$(aws ecr describe-image-scan-findings \
+            --repository-name ${{ secrets.ECR_REPOSITORY }} \
+            --image-id imageTag=$IMAGE_TAG \
+            --query 'length(imageScanFindings.findings[?severity==`HIGH`])' \
+            --output text 2>/dev/null || echo 0)
+          CRITICAL_COUNT=$(aws ecr describe-image-scan-findings \
+            --repository-name ${{ secrets.ECR_REPOSITORY }} \
+            --image-id imageTag=$IMAGE_TAG \
+            --query 'length(imageScanFindings.findings[?severity==`CRITICAL`])' \
+            --output text 2>/dev/null || echo 0)
+          echo "[DEBUG] Found: $HIGH_COUNT HIGH and $CRITICAL_COUNT CRITICAL vulnerabilities"
+          if [ "$HIGH_COUNT" -gt 0 ] || [ "$CRITICAL_COUNT" -gt 0 ]; then
+            echo "❌ High or Critical vulnerabilities found!"
+            exit 1
+          fi
+          echo "✅ No high or critical vulnerabilities found."
 
       # Add your deployment step here if needed, e.g.:
       # - name: Deploy to ECS
