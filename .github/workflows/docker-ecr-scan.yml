@@ -57,7 +57,6 @@ jobs:
           echo "Scan status: $STATUS"
 
       - name: Check ECR scan findings
-        id: check_findings
         run: |
           IMAGE_TAG=${{ github.sha }}
           FINDINGS=$(aws ecr describe-image-scan-findings \
