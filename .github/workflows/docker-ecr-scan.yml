@@ -42,7 +42,6 @@ jobs:
             --image-id imageTag=$IMAGE_TAG
 
       - name: Wait for ECR scan to complete
-        id: wait_scan
         run: |
           IMAGE_TAG=${{ github.sha }}
           for i in {1..10}; do
@@ -55,7 +54,7 @@ jobs:
             fi
             sleep 10
           done
-          echo "status=$STATUS" >> $GITHUB_OUTPUT
+          echo "Scan status: $STATUS"
 
       - name: Check ECR scan findings
         id: check_findings
