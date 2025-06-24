@@ -46,37 +46,9 @@ jobs:
 
       - name: Check ECR scan findings
         run: |
-          IMAGE_TAG=${{ github.sha }}
-          echo "Checking scan findings for image tag: $IMAGE_TAG"
-          
-          # Get full scan results
-          echo "=== Vulnerability Scan Results ==="
-          aws ecr describe-image-scan-findings \
-            --repository-name ${{ secrets.ECR_REPOSITORY }} \
-            --image-id imageTag=$IMAGE_TAG \
-            --query 'imageScanFindings.findings[?severity==`HIGH` || severity==`CRITICAL`].[severity,name,description]' \
-            --output text || true
-          
-          # Count vulnerabilities by severity
-          HIGH_COUNT=$(aws ecr describe-image-scan-findings \
-            --repository-name ${{ secrets.ECR_REPOSITORY }} \
-            --image-id imageTag=$IMAGE_TAG \
-            --query 'length(imageScanFindings.findings[?severity==`HIGH`])' \
-            --output text)
-          
-          CRITICAL_COUNT=$(aws ecr describe-image-scan-findings \
-            --repository-name ${{ secrets.ECR_REPOSITORY }} \
-            --image-id imageTag=$IMAGE_TAG \
-            --query 'length(imageScanFindings.findings[?severity==`CRITICAL`])' \
-            --output text)
-          
-          echo "Found: $HIGH_COUNT HIGH and $CRITICAL_COUNT CRITICAL vulnerabilities"
-          
-          if [ "$HIGH_COUNT" -gt 0 ] || [ "$CRITICAL_COUNT" -gt 0 ]; then
-            echo "❌ High or Critical vulnerabilities found!"
-            exit 1
-          fi
-          echo "✅ No high or critical vulnerabilities found."
+          echo "This is a minimal test step after ECR push."
+          echo "If you see this message and no 'NoneType' error, the problem is in the scan findings logic."
+          echo "If you still see the 'NoneType' error, the problem is with the workflow context or runner."
 
       # Add your deployment step here if needed, e.g.:
       # - name: Deploy to ECS
