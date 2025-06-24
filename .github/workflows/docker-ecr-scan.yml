@@ -47,15 +47,26 @@ jobs:
       - name: Check ECR scan findings
         run: |
           IMAGE_TAG=${{ github.sha }}
+          echo "Checking scan findings for image tag: $IMAGE_TAG"
+          
+          # Get and display all findings
+          aws ecr describe-image-scan-findings \
+            --repository-name ${{ secrets.ECR_REPOSITORY }} \
+            --image-id imageTag=$IMAGE_TAG \
+            --query 'imageScanFindings.findings[?severity==`HIGH` || severity==`CRITICAL`]' \
+            --output table
+          
+          # Check if there are any HIGH/CRITICAL findings
           FINDINGS=$(aws ecr describe-image-scan-findings \
             --repository-name ${{ secrets.ECR_REPOSITORY }} \
             --image-id imageTag=$IMAGE_TAG \
             --query 'imageScanFindings.findings[?severity==`HIGH` || severity==`CRITICAL`]' --output json)
+          
           if [ "$FINDINGS" != "[]" ]; then
-            echo "High or Critical vulnerabilities found!"
+            echo "❌ High or Critical vulnerabilities found!"
             exit 1
           fi
-          echo "No high or critical vulnerabilities found."
+          echo "✅ No high or critical vulnerabilities found."
 
       # Add your deployment step here if needed, e.g.:
       # - name: Deploy to ECS
