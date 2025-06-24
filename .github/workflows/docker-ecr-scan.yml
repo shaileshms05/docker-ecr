@@ -34,14 +34,42 @@ jobs:
           docker tag ${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
           docker push ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
 
-      - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@0.31.0
-        with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          severity: 'HIGH,CRITICAL'
+      - name: Start ECR image scan
+        run: |
+          IMAGE_TAG=${{ github.sha }}
+          aws ecr start-image-scan \
+            --repository-name ${{ secrets.ECR_REPOSITORY }} \
+            --image-id imageTag=$IMAGE_TAG
+
+      - name: Wait for ECR scan to complete
+        id: wait_scan
+        run: |
+          IMAGE_TAG=${{ github.sha }}
+          for i in {1..10}; do
+            STATUS=$(aws ecr describe-image-scan-findings \
+              --repository-name ${{ secrets.ECR_REPOSITORY }} \
+              --image-id imageTag=$IMAGE_TAG \
+              --query 'imageScanStatus.status' --output text)
+            if [ "$STATUS" = "COMPLETE" ]; then
+              break
+            fi
+            sleep 10
+          done
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+
+      - name: Check ECR scan findings
+        id: check_findings
+        run: |
+          IMAGE_TAG=${{ github.sha }}
+          FINDINGS=$(aws ecr describe-image-scan-findings \
+            --repository-name ${{ secrets.ECR_REPOSITORY }} \
+            --image-id imageTag=$IMAGE_TAG \
+            --query 'imageScanFindings.findings[?severity==`HIGH` || severity==`CRITICAL`]' --output json)
+          if [ "$FINDINGS" != "[]" ]; then
+            echo "High or Critical vulnerabilities found!"
+            exit 1
+          fi
+          echo "No high or critical vulnerabilities found."
 
       # Add your deployment step here if needed, e.g.:
       # - name: Deploy to ECS
