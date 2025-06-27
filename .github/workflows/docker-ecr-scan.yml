@@ -24,64 +24,29 @@ jobs:
 
           aws-region: ap-south-1
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
       - name: Build Docker image
         run: |
           IMAGE_TAG=${{ github.sha }}
           docker build -t ${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG .
+
+      - name: Scan image with Trivy (before push)
+        uses: aquasecurity/trivy-action@0.31.0
+        with:
+          image-ref: ${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'HIGH,CRITICAL'
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Tag and Push image to ECR
         run: |
           IMAGE_TAG=${{ github.sha }}
           docker tag ${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
           docker push ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
-
-      - name: Start ECR image scan
-        run: |
-          IMAGE_TAG=${{ github.sha }}
-          aws ecr start-image-scan \
-            --repository-name ${{ secrets.ECR_REPOSITORY }} \
-            --image-id imageTag=$IMAGE_TAG
-
-      - name: Wait for ECR scan to complete
-        run: |
-          IMAGE_TAG=${{ github.sha }}
-          echo "[DEBUG] Starting minimal loop test for image tag: $IMAGE_TAG"
-          for i in {1..12}; do
-            echo "[DEBUG] Loop attempt $i"
-            sleep 1
-          done
-          echo "[DEBUG] Minimal loop test completed."
-
-      - name: Check ECR scan findings
-        run: |
-          IMAGE_TAG=${{ github.sha }}
-          echo "[DEBUG] Checking scan findings for image tag: $IMAGE_TAG"
-          RAW_OUTPUT=$(aws ecr describe-image-scan-findings \
-            --repository-name ${{ secrets.ECR_REPOSITORY }} \
-            --image-id imageTag=$IMAGE_TAG \
-            --output json 2>&1) || true
-          echo "[DEBUG] Raw AWS CLI output:"
-          echo "$RAW_OUTPUT"
-          HIGH_COUNT=$(aws ecr describe-image-scan-findings \
-            --repository-name ${{ secrets.ECR_REPOSITORY }} \
-            --image-id imageTag=$IMAGE_TAG \
-            --query 'length(imageScanFindings.findings[?severity==`HIGH`])' \
-            --output text 2>/dev/null || echo 0)
-          CRITICAL_COUNT=$(aws ecr describe-image-scan-findings \
-            --repository-name ${{ secrets.ECR_REPOSITORY }} \
-            --image-id imageTag=$IMAGE_TAG \
-            --query 'length(imageScanFindings.findings[?severity==`CRITICAL`])' \
-            --output text 2>/dev/null || echo 0)
-          echo "[DEBUG] Found: $HIGH_COUNT HIGH and $CRITICAL_COUNT CRITICAL vulnerabilities"
-          if [ "$HIGH_COUNT" -gt 0 ] || [ "$CRITICAL_COUNT" -gt 0 ]; then
-            echo "❌ High or Critical vulnerabilities found!"
-            exit 1
-          fi
-          echo "✅ No high or critical vulnerabilities found."
 
       # Add your deployment step here if needed, e.g.:
       # - name: Deploy to ECS
