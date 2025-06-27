@@ -13,7 +13,14 @@ spec:
         app: flask-app
     spec:
       containers:
+<<<<<<< HEAD
       - name: flask-app
         image: 334645279807.dkr.ecr.ap-south-1.amazonaws.com/docker-ecr:latest
         ports:
         - containerPort: 5000
+=======
+        - name: flask-app
+          image: 334645279807.dkr.ecr.ap-south-1.amazonaws.com/scan:d8b24861ce59f661dc66b19dfb2dc57c3d26aa0f
+          ports:
+            - containerPort: 5000
+>>>>>>> a0433bdc23846a5c86a1fd3e0383e3ad0cb7af89
