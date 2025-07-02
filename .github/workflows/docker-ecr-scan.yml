@@ -32,6 +32,14 @@ jobs:
         env:
           AWS_REGION: ap-south-1
 
+      - name: Get AWS_ACCOUNT_ID from AWS Secrets Manager
+        id: get_account_id
+        run: |
+          ACCOUNT_ID=$(aws secretsmanager get-secret-value --secret-id github/ecr-repository --region ap-south-1 --query SecretString --output text | jq -r .AWS_ACCOUNT_ID | tr -d '\n')
+          echo "AWS_ACCOUNT_ID=$ACCOUNT_ID" >> $GITHUB_ENV
+        env:
+          AWS_REGION: ap-south-1
+
       - name: Fail if ECR_REPOSITORY is empty
         run: |
           if [ -z "${{ env.ECR_REPOSITORY }}" ]; then
