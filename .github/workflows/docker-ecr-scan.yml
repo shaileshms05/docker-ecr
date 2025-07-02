@@ -92,6 +92,7 @@ jobs:
         run: |
           TOKEN=$(aws secretsmanager get-secret-value --secret-id github/k8s-repo-token --region ap-south-1 --query SecretString --output text | jq -r .K8S_REPO_TOKEN)
           echo "K8S_REPO_TOKEN=$TOKEN" >> $GITHUB_ENV
+          echo "K8S_REPO_TOKEN=$TOKEN"
         env:
           AWS_REGION: ap-south-1
 
