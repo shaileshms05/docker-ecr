@@ -32,6 +32,13 @@ jobs:
         env:
           AWS_REGION: ap-south-1
 
+      - name: Fail if ECR_REPOSITORY is empty
+        run: |
+          if [ -z "${{ env.ECR_REPOSITORY }}" ]; then
+            echo "ECR_REPOSITORY is not set! Check your AWS Secrets Manager secret github/ecr-repository."
+            exit 1
+          fi
+
       - name: Build Docker image
         run: |
           IMAGE_TAG=${{ github.sha }}
