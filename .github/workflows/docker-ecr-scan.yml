@@ -64,3 +64,53 @@ jobs:
           git commit -m "Update image tag to ${IMAGE_TAG} [ci skip]"
           git pull --rebase origin main
           git push origin main
+
+      - name: Clone the other repo
+        run: git clone https://github.com/<username>/<other-repo>.git
+
+      - name: Update deployment.yaml in the other repo
+        run: |
+          cd <other-repo>
+          IMAGE_TAG=${{ github.sha }}
+          REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          yq e '.spec.template.spec.containers[0].image = "'${REGISTRY}/${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG}'"' -i path/to/deployment.yaml
+
+      - name: Commit and push changes to the other repo
+        env:
+          GITHUB_TOKEN: ${{ secrets.OTHER_REPO_TOKEN }}
+        run: |
+          cd <other-repo>
+          git config --global user.email "ci-bot@example.com"
+          git config --global user.name "ci-bot"
+          git add path/to/deployment.yaml
+          git commit -m "Update image tag to ${IMAGE_TAG} [ci skip]"
+          git pull --rebase origin main
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/<username>/<other-repo>.git HEAD:main
+
+      - name: Get K8S repo token from AWS Secrets Manager
+        id: get_k8s_token
+        run: |
+          TOKEN=$(aws secretsmanager get-secret-value --secret-id github/k8s-repo-token --region ap-south-1 --query SecretString --output text | jq -r .K8S_REPO_TOKEN)
+          echo "K8S_REPO_TOKEN=$TOKEN" >> $GITHUB_ENV
+        env:
+          AWS_REGION: ap-south-1
+
+      - name: Clone the k8s repo
+        run: git clone https://x-access-token:${K8S_REPO_TOKEN}@github.com/shaileshms05/k8.git
+
+      - name: Update deployment.yaml in k8s repo
+        run: |
+          cd k8/k8s
+          IMAGE_TAG=${{ github.sha }}
+          REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          yq e '.spec.template.spec.containers[0].image = "'${REGISTRY}/${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG}'"' -i deployment.yaml
+
+      - name: Commit and push changes to k8s repo
+        run: |
+          cd k8
+          git config --global user.email "ci-bot@example.com"
+          git config --global user.name "ci-bot"
+          git add k8s/deployment.yaml
+          git commit -m "Update image tag to ${IMAGE_TAG} [ci skip]"
+          git pull --rebase origin main
+          git push https://x-access-token:${K8S_REPO_TOKEN}@github.com/shaileshms05/k8.git HEAD:main
