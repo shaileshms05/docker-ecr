@@ -66,7 +66,7 @@ jobs:
           git push origin main
 
       - name: Clone the other repo
-        run: git clone https://github.com/<username>/<other-repo>.git
+        run: git clone https://github.com/shaileshms05/k8.git
 
       - name: Update deployment.yaml in the other repo
         run: |
