@@ -48,17 +48,6 @@ jobs:
           docker tag ${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
           docker push ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
 
-      - name: Get ArgoCD credentials from AWS Secrets Manager
-        id: get_argocd_secrets
-        run: |
-          SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id argocd/credentials --region ap-south-1 --query SecretString --output text)
-          echo "ARGOCD_SERVER=$(echo $SECRET_JSON | jq -r .ARGOCD_SERVER)" >> $GITHUB_ENV
-          echo "ARGOCD_USERNAME=$(echo $SECRET_JSON | jq -r .ARGOCD_USERNAME)" >> $GITHUB_ENV
-          echo "ARGOCD_PASSWORD=$(echo $SECRET_JSON | jq -r .ARGOCD_PASSWORD)" >> $GITHUB_ENV
-          echo "ARGOCD_APP_NAME=$(echo $SECRET_JSON | jq -r .ARGOCD_APP_NAME)" >> $GITHUB_ENV
-        env:
-          AWS_REGION: ap-south-1
-
       - name: Install yq
         run: |
           sudo wget -O /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
@@ -73,27 +62,5 @@ jobs:
           git config --global user.name "ci-bot"
           git add k8s/deployment.yaml
           git commit -m "Update image tag to ${IMAGE_TAG} [ci skip]"
+          git pull --rebase origin main
           git push origin main
-
-      - name: Install ArgoCD CLI
-        run: |
-          curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
-          install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
-          rm argocd-linux-amd64
-
-      - name: Login to ArgoCD
-        run: |
-          argocd login $ARGOCD_SERVER \
-            --username $ARGOCD_USERNAME \
-            --password $ARGOCD_PASSWORD \
-            --insecure
-
-      - name: Deploy to EKS via ArgoCD
-        run: |
-          argocd app sync $ARGOCD_APP_NAME --insecure --timeout 300
-          argocd app wait $ARGOCD_APP_NAME --insecure --timeout 600 --health
-
-      - name: Verify deployment
-        run: |
-          echo "✅ Deployment completed successfully!"
-          echo "ArgoCD App: $ARGOCD_APP_NAME" 
